@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aylıq Xərc və Çek Analiz Tətbiqi</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Main JS (Module kimi) -->
+    <script type="module" src="app.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Aylıq Xərc və Çek Analizi</h1>
+        </header>
+
+        <!-- 1. BÜDCƏ VƏ İCMAL -->
+        <section class="card budget-section">
+            <h2>1. Aylıq Büdcə (Maaş)</h2>
+            <div class="input-inline">
+                <input type="number" id="monthlyBudget" placeholder="Aylıq büdcəniz (AZN)" step="0.01">
+                <button id="saveBudgetBtn">Yadda Saxla</button>
+            </div>
+            <div class="summary-cards">
+                <div class="summary-box">
+                    <span>Büdcə:</span>
+                    <strong id="displayBudget">0.00 ₼</strong>
+                </div>
+                <div class="summary-box">
+                    <span>Ümumi Xərc:</span>
+                    <strong id="displayTotalExpense">0.00 ₼</strong>
+                </div>
+                <div class="summary-box">
+                    <span>Qalıq:</span>
+                    <strong id="displayBalance">0.00 ₼</strong>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. AI ÇEK OXUMA VƏ ƏLLƏ ƏLAVƏ İTMƏK -->
+        <section class="card entry-section">
+            <h2>2. Xərc Əlavə Et</h2>
+
+            <!-- AI Çek Oxuyucu -->
+            <div class="ai-box">
+                <h3>📷 AI ilə Market Çeki Oxu</h3>
+                <p>Çekin faylını seçin və ya birbaşa kamera ilə şəklini çəkin:</p>
+
+                <div class="input-inline">
+                    <input type="file" id="receiptImage" accept="image/*">
+                    <button id="openCameraBtn" type="button" class="ai-btn" style="background-color: #27ae60;">📷 Kameranı Aç</button>
+                    <button id="scanReceiptBtn" class="ai-btn">✨ Çeki AI ilə Oxu</button>
+                </div>
+
+                <!-- Canlı Kamera Pəncərəsi -->
+                <div id="cameraContainer" style="display: none; text-align: center; margin-top: 15px;">
+                    <video id="webcam" autoplay playsinline style="width: 100%; max-width: 400px; border-radius: 8px; border: 2px solid #8e44ad;"></video>
+                    <div style="margin-top: 10px;">
+                        <button id="captureBtn" type="button" style="background-color: #e67e22;">📸 Şəkil Çək vər Seç</button>
+                        <button id="closeCameraBtn" type="button" style="background-color: #95a5a6;">❌ Bağla</button>
+                    </div>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                </div>
+
+                <div id="aiStatus" class="status-msg"></div>
+            </div>
+
+            <!-- Əllə Xərc Daxil Etmə Forması -->
+            <h3>✏️ Əllə Daxil Etmə</h3>
+            <form id="expenseForm">
+                <div class="form-grid">
+                    <input type="text" id="itemName" placeholder="Məhsul/Xidmət adı" required>
+                    <input type="number" id="itemPrice" placeholder="Qiymət (AZN)" step="0.01" required>
+                    <select id="itemCategory">
+                        <option value="Market">Market</option>
+                        <option value="Kommunal">Kommunal</option>
+                        <option value="Nəqliyyat/Yanacaq">Nəqliyyat/Yanacaq</option>
+                        <option value="Əyləncə/Restoran">Əyləncə/Restoran</option>
+                        <option value="Geyim">Geyim</option>
+                        <option value="Digər">Digər</option>
+                    </select>
+                    <input type="date" id="itemDate" required>
+                </div>
+                <button type="submit" class="add-btn">Siyahıya Əlavə Et</button>
+            </form>
+        </section>
+
+        <!-- 3. XƏRCLƏR SİYAHISI -->
+        <section class="card list-section">
+            <h2>3. Əlavə Olunmuş Xərclər</h2>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tarix</th>
+                            <th>Məhsul / Xidmət</th>
+                            <th>Kateqoriya</th>
+                            <th>Məbləğ</th>
+                            <th>Əməliyyat</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expenseTableBody">
+                        <!-- Sətirlər JS ilə dinamik əlavə olunacaq -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 4. AY SONU ƏN ÇOX XƏRC ANALİZİ -->
+        <section class="card analytics-section">
+            <h2>4. Ay Sonu Xərc Analizi</h2>
+            <div id="topExpenseNotice" class="highlight-box">Hələ ki, heç bir xərc daxil edilməyib.</div>
+            <div class="chart-container">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </section>
+    </div>
+</body>
+</html>
