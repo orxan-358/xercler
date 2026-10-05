@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maliyyə və Xərc Analizi</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <!-- 1. QEYDİYYAT VƏ GİRİŞ FORMASI -->
+    <div id="authContainer" class="auth-card">
+        <h2 id="authTitle">Giriş Edin</h2>
+        <input type="text" id="authNickname" placeholder="Ləqəb (Nickname)">
+        <input type="password" id="authPassword" placeholder="Parol">
+        <div class="auth-btn-group">
+            <button id="loginBtn" type="button" class="btn btn-success">Giriş Et</button>
+            <button id="registerBtn" type="button" class="btn btn-primary">Qeydiyyat Ol</button>
+        </div>
+        <p id="authStatus" class="status-msg"></p>
+    </div>
+
+    <!-- 2. ƏSAS TƏTBİQ -->
+    <div id="mainAppContainer" style="display: none;">
+
+        <!-- Header Panel -->
+        <header class="app-header">
+            <h1>📊 Maliyyə İdarəetməsi & AI Analiz</h1>
+            <div class="user-panel">
+                <span id="userGreeting"></span>
+                <button id="logoutBtn" type="button" class="btn btn-danger btn-sm">Çıxış Et</button>
+            </div>
+        </header>
+
+        <!-- İcmal Kartları -->
+        <section class="summary-grid">
+            <div class="summary-card budget">
+                <span class="card-title">Əsas Büdcə</span>
+                <strong id="displayBudget">0.00 ₼</strong>
+            </div>
+            <div class="summary-card income">
+                <span class="card-title">Əlavə Gəlirlər</span>
+                <strong id="displayTotalIncome">0.00 ₼</strong>
+            </div>
+            <div class="summary-card expense">
+                <span class="card-title">Ümumi Xərc</span>
+                <strong id="displayTotalExpense">0.00 ₼</strong>
+            </div>
+            <div class="summary-card balance">
+                <span class="card-title">Net Qalıq</span>
+                <strong id="displayBalance">0.00 ₼</strong>
+            </div>
+        </section>
+
+        <!-- Büdcə Təyini & Əlavə Gəlir/Xərc İdarəsi -->
+        <div class="grid-2col">
+            <!-- 1. Əsas Büdcə Təyini -->
+            <section class="card">
+                <h2>1. Əsas Büdcə (Maaş)</h2>
+                <div class="input-inline">
+                    <input type="number" id="monthlyBudget" placeholder="Aylıq büdcəniz (AZN)" step="0.01">
+                    <button id="saveBudgetBtn" class="btn btn-primary">Yadda Saxla</button>
+                    <button id="deleteBudgetBtn" class="btn btn-danger" style="display: none;">Sil</button>
+                </div>
+            </section>
+
+            <!-- 2. Əlavə Gəlir Daxil Etmə -->
+            <section class="card">
+                <h2>➕ Əlavə Gəlir Daxil Et</h2>
+                <form id="incomeForm" class="form-grid-2">
+                    <input type="text" id="incomeName" placeholder="Gəlir mənbəyi (məs: Premiya)" required>
+                    <input type="number" id="incomePrice" placeholder="Məbləğ (AZN)" step="0.01" required>
+                    <input type="date" id="incomeDate" required>
+                    <button type="submit" class="btn btn-success">Gəlir Əlavə Et</button>
+                </form>
+            </section>
+        </div>
+
+        <!-- AI Çek Oxu və Əllə Xərc Daxil Etmə -->
+        <section class="card">
+            <h2>💸 Xərc Daxil Etmə Və AI Çek Skanneri</h2>
+            <div class="ai-box">
+                <h3>📷 AI ilə Çek Oxu</h3>
+                <div class="input-inline">
+                    <input type="file" id="receiptImage" accept="image/*">
+                    <button id="openCameraBtn" type="button" class="btn btn-info">📷 Kameranı Aç</button>
+                    <button id="scanReceiptBtn" class="btn btn-purple">✨ Çeki AI ilə Oxu</button>
+                </div>
+
+                <div id="cameraContainer" style="display: none;" class="camera-modal">
+                    <video id="webcam" autoplay playsinline></video>
+                    <div class="camera-actions">
+                        <button id="captureBtn" type="button" class="btn btn-warning">📸 Şəkil Çək</button>
+                        <button id="closeCameraBtn" type="button" class="btn btn-secondary">❌ Bağla</button>
+                    </div>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                </div>
+                <div id="aiStatus" class="status-msg"></div>
+            </div>
+
+            <hr class="divider">
+
+            <h3>✏️ Əllə Xərc Daxil Et</h3>
+            <form id="expenseForm" class="form-grid-4">
+                <input type="text" id="itemName" placeholder="Məhsul/Xidmət adı" required>
+                <input type="number" id="itemPrice" placeholder="Qiymət (AZN)" step="0.01" required>
+                <select id="itemCategory">
+                    <option value="Market">Market</option>
+                    <option value="Kommunal">Kommunal</option>
+                    <option value="Nəqliyyat/Yanacaq">Nəqliyyat/Yanacaq</option>
+                    <option value="Əyləncə/Restoran">Əyləncə/Restoran</option>
+                    <option value="Geyim">Geyim</option>
+                    <option value="Digər">Digər</option>
+                </select>
+                <input type="date" id="itemDate" required>
+                <button type="submit" class="btn btn-primary grid-full">Xərc Əlavə Et</button>
+            </form>
+        </section>
+
+        <!-- Siyahılar: Gəlirlərim və Xərclərim (Tab Modulu) -->
+        <section class="card">
+            <div class="tab-header">
+                <button class="tab-btn active" data-tab="expensesTab">💸 Xərclərim</button>
+                <button class="tab-btn" data-tab="incomesTab">💰 Gəlirlərim</button>
+            </div>
+
+            <!-- Xərclər Cədvəli -->
+            <div id="expensesTab" class="tab-content active">
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tarix</th>
+                                <th>Məhsul / Xidmət</th>
+                                <th>Kateqoriya</th>
+                                <th>Məbləğ</th>
+                                <th>Sil</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expenseTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Gəlirlər Cədvəli -->
+            <div id="incomesTab" class="tab-content">
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tarix</th>
+                                <th>Gəlir Mənbəyi</th>
+                                <th>Məbləğ</th>
+                                <th>Sil</th>
+                            </tr>
+                        </thead>
+                        <tbody id="incomeTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- AI Qiymətləndirmə Və Qrafik -->
+        <section class="card">
+            <div class="ai-analytics-header">
+                <h2>🤖 AI Maliyyə Qiymətləndirilməsi</h2>
+                <button id="analyzeFinanceBtn" class="btn btn-purple">💡 Maliyyəmi AI İlə Təhlil Et</button>
+            </div>
+            <div id="aiFinancialAdvice" class="ai-advice-box">Maliyyə vəziyyətinizi AI tərəfindən qiymətləndirmək üçün düyməyə basın.</div>
+            
+            <div class="chart-wrapper">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </section>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
