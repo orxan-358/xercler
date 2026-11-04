@@ -18,13 +18,14 @@ const db = getDatabase(app);
 
 // Global dəyişənlər
 let currentUser = localStorage.getItem("currentUser") || null;
+let currentMonth = new Date().toISOString().slice(0, 7); // Məs: "2026-06"
 let monthlyBudget = 0;
 let expenses = [];
 let incomes = [];
 let categoryChart = null;
 let mediaStream = null;
 
-let budgetUnsubscribe, expensesUnsubscribe, incomesUnsubscribe;
+let currentListeners = [];
 
 // DOM Elementləri
 const authContainer = document.getElementById("authContainer");
@@ -36,6 +37,7 @@ const registerBtn = document.getElementById("registerBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const authStatus = document.getElementById("authStatus");
 const userGreeting = document.getElementById("userGreeting");
+const monthSelector = document.getElementById("monthSelector");
 
 const monthlyBudgetInput = document.getElementById("monthlyBudget");
 const saveBudgetBtn = document.getElementById("saveBudgetBtn");
@@ -54,7 +56,6 @@ const incomeTableBody = document.getElementById("incomeTableBody");
 const analyzeFinanceBtn = document.getElementById("analyzeFinanceBtn");
 const aiFinancialAdvice = document.getElementById("aiFinancialAdvice");
 
-// Çek Skanner DOM Elementləri
 const receiptImageInput = document.getElementById("receiptImage");
 const openCameraBtn = document.getElementById("openCameraBtn");
 const scanReceiptBtn = document.getElementById("scanReceiptBtn");
@@ -65,7 +66,6 @@ const closeCameraBtn = document.getElementById("closeCameraBtn");
 const canvas = document.getElementById("canvas");
 const aiStatus = document.getElementById("aiStatus");
 
-// Tarixləri avtomatik bu gün etmək
 const today = new Date().toISOString().split('T')[0];
 if(document.getElementById("itemDate")) document.getElementById("itemDate").value = today;
 if(document.getElementById("incomeDate")) document.getElementById("incomeDate").value = today;
@@ -117,13 +117,48 @@ function initApp() {
     authContainer.style.display = "none";
     mainAppContainer.style.display = "block";
     userGreeting.innerText = `👤 ${currentUser}`;
-    loadData();
+    loadAvailableMonths();
 }
 
-// --- 3. VERİLƏNLƏRİN YÜKLƏNMƏSİ VƏ BÜDCƏ İDARƏSİ ---
-function loadData() {
-    // Büdcə
-    budgetUnsubscribe = onValue(ref(db, `users/${currentUser}/budget`), (snapshot) => {
+// --- 3. AYILARIN İDARƏSİ VƏ ARXİVİ ---
+async function loadAvailableMonths() {
+    const monthsRef = ref(db, `users/${currentUser}/months`);
+    const snapshot = await get(monthsRef);
+    
+    let monthsSet = new Set();
+    monthsSet.add(currentMonth); // Cari ayı mütləq əlavə edirik
+
+    if (snapshot.exists()) {
+        Object.keys(snapshot.val()).forEach(m => monthsSet.add(m));
+    }
+
+    // Seçim menyusunu yeniləyirik
+    monthSelector.innerHTML = "";
+    Array.from(monthsSet).sort().reverse().forEach(m => {
+        const option = document.createElement("option");
+        option.value = m;
+        option.innerText = `📅 Ay: ${m}`;
+        if (m === currentMonth) option.selected = true;
+        monthSelector.appendChild(option);
+    });
+
+    loadDataForMonth(currentMonth);
+}
+
+monthSelector.addEventListener("change", (e) => {
+    currentMonth = e.target.value;
+    loadDataForMonth(currentMonth);
+});
+
+// --- 4. SEÇİLƏN AY ÜZRƏ VERİLƏNLƏRİN YÜKLƏNMƏSİ ---
+function loadDataForMonth(monthKey) {
+    monthlyBudget = 0;
+    expenses = [];
+    incomes = [];
+
+    const monthRef = ref(db, `users/${currentUser}/months/${monthKey}`);
+
+    onValue(ref(db, `users/${currentUser}/months/${monthKey}/budget`), (snapshot) => {
         monthlyBudget = snapshot.val() || 0;
         displayBudget.innerText = `${monthlyBudget.toFixed(2)} ₼`;
         
@@ -139,10 +174,10 @@ function loadData() {
             deleteBudgetBtn.style.display = "none";
         }
         calculateTotals();
-    });
+    }, { onlyOnce: true });
 
     // Xərclər
-    expensesUnsubscribe = onValue(ref(db, `users/${currentUser}/expenses`), (snapshot) => {
+    onValue(ref(db, `users/${currentUser}/months/${monthKey}/expenses`), (snapshot) => {
         const data = snapshot.val();
         expenses = [];
         expenseTableBody.innerHTML = "";
@@ -165,7 +200,7 @@ function loadData() {
     });
 
     // Gəlirlər
-    incomesUnsubscribe = onValue(ref(db, `users/${currentUser}/incomes`), (snapshot) => {
+    onValue(ref(db, `users/${currentUser}/months/${monthKey}/incomes`), (snapshot) => {
         const data = snapshot.val();
         incomes = [];
         incomeTableBody.innerHTML = "";
@@ -186,43 +221,59 @@ function loadData() {
     });
 }
 
-// Büdcə Saxla / Sil
+// Büdcəni cari aya yazmaq
 saveBudgetBtn.addEventListener("click", () => {
     const val = parseFloat(monthlyBudgetInput.value);
     if (!isNaN(val) && val >= 0) {
-        set(ref(db, `users/${currentUser}/budget`), val);
+        set(ref(db, `users/${currentUser}/months/${currentMonth}/budget`), val);
     }
 });
 
 deleteBudgetBtn.addEventListener("click", () => {
-    remove(ref(db, `users/${currentUser}/budget`));
+    remove(ref(db, `users/${currentUser}/months/${currentMonth}/budget`));
 });
 
-// Gəlir Əlavə Et
+// Gəlir Əlavə Et (Seçilən aya yazılır)
 incomeForm.addEventListener("submit", (e) => {
     e.preventDefault();
+    const dateVal = document.getElementById("incomeDate").value;
+    const targetMonth = dateVal.slice(0, 7);
+
     const newIncome = {
         name: document.getElementById("incomeName").value.trim(),
         price: parseFloat(document.getElementById("incomePrice").value),
-        date: document.getElementById("incomeDate").value
+        date: dateVal
     };
-    push(ref(db, `users/${currentUser}/incomes`), newIncome).then(() => incomeForm.reset());
+
+    push(ref(db, `users/${currentUser}/months/${targetMonth}/incomes`), newIncome).then(() => {
+        incomeForm.reset();
+        document.getElementById("incomeDate").value = today;
+        loadAvailableMonths();
+    });
 });
 
-// Xərc Əlavə Et
+// Xərc Əlavə Et (Seçilən aya yazılır)
 expenseForm.addEventListener("submit", (e) => {
     e.preventDefault();
+    const dateVal = document.getElementById("itemDate").value;
+    const targetMonth = dateVal.slice(0, 7);
+
     const newExpense = {
         name: document.getElementById("itemName").value.trim(),
         price: parseFloat(document.getElementById("itemPrice").value),
         category: document.getElementById("itemCategory").value,
-        date: document.getElementById("itemDate").value
+        date: dateVal
     };
-    push(ref(db, `users/${currentUser}/expenses`), newExpense).then(() => expenseForm.reset());
+
+    push(ref(db, `users/${currentUser}/months/${targetMonth}/expenses`), newExpense).then(() => {
+        expenseForm.reset();
+        document.getElementById("itemDate").value = today;
+        loadAvailableMonths();
+    });
 });
 
 window.deleteItem = function(type, id) {
-    remove(ref(db, `users/${currentUser}/${type}/${id}`));
+    remove(ref(db, `users/${currentUser}/months/${currentMonth}/${type}/${id}`));
 };
 
 function calculateTotals() {
@@ -236,30 +287,24 @@ function calculateTotals() {
     displayBalance.style.color = netBalance < 0 ? "var(--danger)" : "var(--info)";
 }
 
-// --- 4. KAMERA VƏ AI ÇEK SKANNERİ ---
-
-// Kameranı açmaq
+// --- 5. KAMERA VƏ AI ÇEK SKANNERİ ---
 openCameraBtn.addEventListener("click", async () => {
     try {
         mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
         webcam.srcObject = mediaStream;
         cameraContainer.style.display = "block";
     } catch (err) {
-        alert("Kameraya icazə verilmədi və ya kamera tapılmadı!");
+        alert("Kameraya icazə verilmədi!");
     }
 });
 
-// Kameranı bağlamaq
 closeCameraBtn.addEventListener("click", stopCamera);
 
 function stopCamera() {
-    if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-    }
+    if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
     cameraContainer.style.display = "none";
 }
 
-// Kameradan şəkil çəkmək
 captureBtn.addEventListener("click", () => {
     const ctx = canvas.getContext("2d");
     canvas.width = webcam.videoWidth;
@@ -277,16 +322,15 @@ captureBtn.addEventListener("click", () => {
     }, "image/jpeg");
 });
 
-// Çeki Gemini AI vasitəsilə oxumaq
 scanReceiptBtn.addEventListener("click", async () => {
     const file = receiptImageInput.files[0];
     if (!file) {
-        aiStatus.innerText = "❌ Lütfən əvvəlcə bir çek şəkli seçin və ya çəkin!";
+        aiStatus.innerText = "❌ Lütfən çek şəkli seçin!";
         aiStatus.style.color = "var(--danger)";
         return;
     }
 
-    aiStatus.innerText = "⏳ Çek oxunur və analiz edilir...";
+    aiStatus.innerText = "⏳ Çek oxunur...";
     aiStatus.style.color = "var(--info)";
 
     try {
@@ -294,62 +338,47 @@ scanReceiptBtn.addEventListener("click", async () => {
         if (!keySnap.exists()) throw new Error("Firebase-də 'gemini_key' tapılmadı.");
         const apiKey = keySnap.val().trim();
 
-        // Şəkli Base64-ə çeviririk
         const base64Data = await fileToBase64(file);
-
-        const prompt = `Bu çek görüntüsünü analiz et. Çekdəki ümumi məbləği (price), mağaza/obyekt adını (name) və kateqoriyanı (Market, Kommunal, Nəqliyyat/Yanacaq, Əyləncə/Restoran, Geyim, Digər) tap.
-Geriyə YALNIZ pure JSON cavabı qaytar, başqa heç bir söz, markdown və ya tırnaq işarəsi yazma:
-{"name": "Mağaza Adı", "price": 12.50, "category": "Market"}`;
+        const prompt = `Bu çek görüntüsünü analiz et. Ümumi məbləği (price), mağaza adını (name) və kateqoriyanı (Market, Kommunal, Nəqliyyat/Yanacaq, Əyləncə/Restoran, Geyim, Digər) tap. YALNIZ pure JSON cavabı qaytar: {"name": "Mağaza", "price": 12.50, "category": "Market"}`;
 
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
         const response = await fetch(apiUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [
-                        { text: prompt },
-                        { inline_data: { mime_type: file.type || "image/jpeg", data: base64Data } }
-                    ]
-                }]
-            })
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: file.type || "image/jpeg", data: base64Data } }] }] })
         });
 
         const data = await response.json();
-        
         if (data.error) throw new Error(data.error.message);
 
-        let resultText = data.candidates[0].content.parts[0].text.trim();
-        // Zəruri olduqda JSON formatından kənar simvolları temizləyirik
-        resultText = resultText.replace(/```json/g, "").replace(/```/g, "").trim();
-
+        let resultText = data.candidates[0].content.parts[0].text.trim().replace(/```json/g, "").replace(/```/g, "").trim();
         const parsed = JSON.parse(resultText);
 
         if (parsed.price) {
-            const newExpense = {
-                name: parsed.name || "Çek üzrə xərc",
+            const expenseDate = today;
+            const targetMonth = expenseDate.slice(0, 7);
+
+            await push(ref(db, `users/${currentUser}/months/${targetMonth}/expenses`), {
+                name: parsed.name || "Çek xərci",
                 price: parseFloat(parsed.price),
                 category: parsed.category || "Market",
-                date: new Date().toISOString().split('T')[0]
-            };
+                date: expenseDate
+            });
 
-            await push(ref(db, `users/${currentUser}/expenses`), newExpense);
-            aiStatus.innerText = `✅ Çek əlavə edildi: ${newExpense.name} - ${newExpense.price} AZN (${newExpense.category})`;
+            aiStatus.innerText = `✅ Çək əlavə edildi: ${parsed.price} AZN`;
             aiStatus.style.color = "var(--success)";
             receiptImageInput.value = "";
+            loadAvailableMonths();
         } else {
-            throw new Error("Çekdən qiymət oxuna bilmədi.");
+            throw new Error("Qiymət tapılmadı.");
         }
-
     } catch (err) {
-        console.error(err);
-        aiStatus.innerText = "❌ Xəta baş verdi: " + err.message;
+        aiStatus.innerText = "❌ Xəta: " + err.message;
         aiStatus.style.color = "var(--danger)";
     }
 });
 
-// Helper: File to Base64
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -359,18 +388,17 @@ function fileToBase64(file) {
     });
 }
 
-// --- 5. TAB KEÇİDLƏRİ ---
+// --- 6. TAB KEÇİDLƏRİ ---
 document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
         document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
         document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-        
         btn.classList.add("active");
         document.getElementById(btn.dataset.tab).classList.add("active");
     });
 });
 
-// --- 6. AI İLƏ MALİYYƏ QİYMƏTLƏNDİRİLMƏSİ ---
+// --- 7. AI MALİYYƏ AUDİTİ ---
 analyzeFinanceBtn.addEventListener("click", async () => {
     aiFinancialAdvice.innerText = "⏳ AI maliyyə balansınızı təhlil edir...";
 
@@ -382,13 +410,12 @@ analyzeFinanceBtn.addEventListener("click", async () => {
         const totalInc = incomes.reduce((sum, i) => sum + parseFloat(i.price), 0);
         const totalExp = expenses.reduce((sum, e) => sum + parseFloat(e.price), 0);
 
-        const prompt = `İstifadəçinin maliyyə auditi:
-- Əsas Maaş/Büdcə: ${monthlyBudget} AZN
+        const prompt = `Ay üzrə maliyyə auditi (${currentMonth}):
+- Büdcə: ${monthlyBudget} AZN
 - Əlavə Gəlirlər: ${totalInc} AZN
 - Ümumi Xərc: ${totalExp} AZN
-- Xərclər Siyahısı: ${JSON.stringify(expenses)}
-
-Lütfən bu istifadəçiyə qısa, dəqiq və motivasiyaedici maliyyə tövsiyəsi ver (Azərbaycan dilində). Ən çox pul xərclənən sahəni vurğula və qənaət məsləhəti ver.`;
+- Xərclər: ${JSON.stringify(expenses)}
+Qısa, dəqiq və motivasiyaedici maliyyə məsləhəti ver (Azərbaycan dilində).`;
 
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
@@ -399,20 +426,19 @@ Lütfən bu istifadəçiyə qısa, dəqiq və motivasiyaedici maliyyə tövsiyə
         });
 
         const data = await res.json();
-        
         if (data.error) throw new Error(data.error.message);
 
         if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
             aiFinancialAdvice.innerHTML = data.candidates[0].content.parts[0].text.replace(/\n/g, '<br>');
         } else {
-            throw new Error("Naməlum cavab strukturu alındı.");
+            throw new Error("Cavab alınmadı.");
         }
     } catch (err) {
-        aiFinancialAdvice.innerText = "❌ Təhlil zamanı xəta baş verdi: " + err.message;
+        aiFinancialAdvice.innerText = "❌ Xəta: " + err.message;
     }
 });
 
-// --- 7. CHART.JS QRAFİKİ ---
+// --- 8. QRAFİK ---
 function updateChart() {
     const categories = {};
     expenses.forEach(item => {
