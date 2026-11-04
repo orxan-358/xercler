@@ -350,6 +350,55 @@ tr:hover td {
     margin: 20px auto 0 auto;
 }
 
+/* Aylıq Açılıb-Bağlanan Menyu (Accordion) Stili */
+.accordion-item {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-bottom: 12px;
+    background: #fff;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.accordion-header {
+    background: #f8fafc;
+    padding: 16px 20px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-main);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.accordion-header:hover {
+    background: #f1f5f9;
+}
+
+.accordion-body {
+    display: none;
+    padding: 15px;
+    border-top: 1px solid var(--border);
+}
+
+.accordion-item.open .accordion-body {
+    display: block;
+}
+
+.accordion-icon {
+    font-size: 14px;
+    transition: transform 0.3s;
+}
+
+.accordion-item.open .accordion-icon {
+    transform: rotate(180deg);
+}
+
+
+
+
 /* Mobil Uyunluq (Responsive) */
 @media (max-width: 768px) {
     .grid-2col, .form-grid-4, .form-grid-2 {
