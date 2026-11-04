@@ -18,14 +18,12 @@ const db = getDatabase(app);
 
 // Global dəyişənlər
 let currentUser = localStorage.getItem("currentUser") || null;
-let currentMonth = new Date().toISOString().slice(0, 7); // Məs: "2026-06"
+let currentMonth = new Date().toISOString().slice(0, 7);
 let monthlyBudget = 0;
 let expenses = [];
 let incomes = [];
 let categoryChart = null;
 let mediaStream = null;
-
-let currentListeners = [];
 
 // DOM Elementləri
 const authContainer = document.getElementById("authContainer");
@@ -50,9 +48,6 @@ const displayBalance = document.getElementById("displayBalance");
 
 const expenseForm = document.getElementById("expenseForm");
 const incomeForm = document.getElementById("incomeForm");
-const expenseTableBody = document.getElementById("expenseTableBody");
-const incomeTableBody = document.getElementById("incomeTableBody");
-
 const analyzeFinanceBtn = document.getElementById("analyzeFinanceBtn");
 const aiFinancialAdvice = document.getElementById("aiFinancialAdvice");
 
@@ -118,6 +113,7 @@ function initApp() {
     mainAppContainer.style.display = "block";
     userGreeting.innerText = `👤 ${currentUser}`;
     loadAvailableMonths();
+    loadAllMonthsData();
 }
 
 // --- 3. AYILARIN İDARƏSİ VƏ ARXİVİ ---
@@ -126,13 +122,12 @@ async function loadAvailableMonths() {
     const snapshot = await get(monthsRef);
     
     let monthsSet = new Set();
-    monthsSet.add(currentMonth); // Cari ayı mütləq əlavə edirik
+    monthsSet.add(currentMonth);
 
     if (snapshot.exists()) {
         Object.keys(snapshot.val()).forEach(m => monthsSet.add(m));
     }
 
-    // Seçim menyusunu yeniləyirik
     monthSelector.innerHTML = "";
     Array.from(monthsSet).sort().reverse().forEach(m => {
         const option = document.createElement("option");
@@ -150,8 +145,30 @@ monthSelector.addEventListener("change", (e) => {
     loadDataForMonth(currentMonth);
 });
 
+// --- 4. SEÇİLƏN AY ÜZRƏ BÜDCƏ VƏ QRAFİK ---
+function loadDataForMonth(monthKey) {
+    monthlyBudget = 0;
 
-// --- BÜTÜN AYLA ÜZRƏ XƏRCLƏR VƏ GƏLİRLƏRİN YÜKLƏNMƏSİ (AÇILIB-BAĞLANAN MENYU) ---
+    onValue(ref(db, `users/${currentUser}/months/${monthKey}/budget`), (snapshot) => {
+        monthlyBudget = snapshot.val() || 0;
+        displayBudget.innerText = `${monthlyBudget.toFixed(2)} ₼`;
+        
+        if (monthlyBudget > 0) {
+            monthlyBudgetInput.value = monthlyBudget;
+            monthlyBudgetInput.disabled = true;
+            saveBudgetBtn.style.display = "none";
+            deleteBudgetBtn.style.display = "inline-block";
+        } else {
+            monthlyBudgetInput.value = "";
+            monthlyBudgetInput.disabled = false;
+            saveBudgetBtn.style.display = "inline-block";
+            deleteBudgetBtn.style.display = "none";
+        }
+        calculateOverallTotals();
+    }, { onlyOnce: true });
+}
+
+// --- 5. BÜTÜN AYLARI ACCORDION (AÇILIB-BAĞLANAN) ŞƏKLİNDƏ YÜKLƏMƏ ---
 function loadAllMonthsData() {
     const userRef = ref(db, `users/${currentUser}/months`);
     
@@ -171,17 +188,22 @@ function loadAllMonthsData() {
             return;
         }
 
+        // Qlobal hesablamalar üçün massivləri yeniləyirik
+        expenses = [];
+        incomes = [];
+
         sortedMonths.forEach(monthKey => {
             const monthObj = monthsData[monthKey];
             const monthExpenses = monthObj.expenses || {};
             const monthIncomes = monthObj.incomes || {};
 
-            // --- XƏRCLƏR ÜÇÜN ACCORDION ELEMENTİ ---
+            // Xərclər sətrləri
             let expRows = "";
             let totalExpMonth = 0;
             Object.keys(monthExpenses).forEach(id => {
                 const item = monthExpenses[id];
                 totalExpMonth += parseFloat(item.price) || 0;
+                if (monthKey === currentMonth) expenses.push(item);
                 expRows += `
                     <tr>
                         <td>${item.date}</td>
@@ -217,12 +239,13 @@ function loadAllMonthsData() {
                 </div>`;
             expensesAccordion.appendChild(expAccordionItem);
 
-            // --- GƏLİRLƏR ÜÇÜN ACCORDION ELEMENTİ ---
+            // Gəlirlər sətrləri
             let incRows = "";
             let totalIncMonth = 0;
             Object.keys(monthIncomes).forEach(id => {
                 const item = monthIncomes[id];
                 totalIncMonth += parseFloat(item.price) || 0;
+                if (monthKey === currentMonth) incomes.push(item);
                 incRows += `
                     <tr>
                         <td>${item.date}</td>
@@ -256,10 +279,13 @@ function loadAllMonthsData() {
                 </div>`;
             incomesAccordion.appendChild(incAccordionItem);
         });
+
+        calculateOverallTotals();
+        updateChart();
     });
 }
 
-// Açılıb-bağlanma funksiyası (Global)
+// Accordion açılıb bağlanma funksiyası
 window.toggleAccordion = function(header) {
     const item = header.parentElement;
     const body = item.querySelector('.accordion-body');
@@ -276,79 +302,7 @@ window.deleteItem = function(monthKey, type, id) {
     remove(ref(db, `users/${currentUser}/months/${monthKey}/${type}/${id}`));
 };
 
-
-// --- 4. SEÇİLƏN AY ÜZRƏ VERİLƏNLƏRİN YÜKLƏNMƏSİ ---
-function loadDataForMonth(monthKey) {
-    monthlyBudget = 0;
-    expenses = [];
-    incomes = [];
-
-    const monthRef = ref(db, `users/${currentUser}/months/${monthKey}`);
-
-    onValue(ref(db, `users/${currentUser}/months/${monthKey}/budget`), (snapshot) => {
-        monthlyBudget = snapshot.val() || 0;
-        displayBudget.innerText = `${monthlyBudget.toFixed(2)} ₼`;
-        
-        if (monthlyBudget > 0) {
-            monthlyBudgetInput.value = monthlyBudget;
-            monthlyBudgetInput.disabled = true;
-            saveBudgetBtn.style.display = "none";
-            deleteBudgetBtn.style.display = "inline-block";
-        } else {
-            monthlyBudgetInput.value = "";
-            monthlyBudgetInput.disabled = false;
-            saveBudgetBtn.style.display = "inline-block";
-            deleteBudgetBtn.style.display = "none";
-        }
-        calculateTotals();
-    }, { onlyOnce: true });
-
-    // Xərclər
-    onValue(ref(db, `users/${currentUser}/months/${monthKey}/expenses`), (snapshot) => {
-        const data = snapshot.val();
-        expenses = [];
-        expenseTableBody.innerHTML = "";
-        if (data) {
-            Object.keys(data).forEach(key => {
-                const item = { id: key, ...data[key] };
-                expenses.push(item);
-                expenseTableBody.innerHTML += `
-                    <tr>
-                        <td>${item.date}</td>
-                        <td>${item.name}</td>
-                        <td>${item.category}</td>
-                        <td>${parseFloat(item.price).toFixed(2)} ₼</td>
-                        <td><button class="btn btn-danger btn-sm" onclick="deleteItem('expenses', '${key}')">Sil</button></td>
-                    </tr>`;
-            });
-        }
-        calculateTotals();
-        updateChart();
-    });
-
-    // Gəlirlər
-    onValue(ref(db, `users/${currentUser}/months/${monthKey}/incomes`), (snapshot) => {
-        const data = snapshot.val();
-        incomes = [];
-        incomeTableBody.innerHTML = "";
-        if (data) {
-            Object.keys(data).forEach(key => {
-                const item = { id: key, ...data[key] };
-                incomes.push(item);
-                incomeTableBody.innerHTML += `
-                    <tr>
-                        <td>${item.date}</td>
-                        <td>${item.name}</td>
-                        <td>${parseFloat(item.price).toFixed(2)} ₼</td>
-                        <td><button class="btn btn-danger btn-sm" onclick="deleteItem('incomes', '${key}')">Sil</button></td>
-                    </tr>`;
-            });
-        }
-        calculateTotals();
-    });
-}
-
-// Büdcəni cari aya yazmaq
+// Büdcə düymələri
 saveBudgetBtn.addEventListener("click", () => {
     const val = parseFloat(monthlyBudgetInput.value);
     if (!isNaN(val) && val >= 0) {
@@ -360,7 +314,7 @@ deleteBudgetBtn.addEventListener("click", () => {
     remove(ref(db, `users/${currentUser}/months/${currentMonth}/budget`));
 });
 
-// Gəlir Əlavə Et (Seçilən aya yazılır)
+// Gəlir Əlavə Et
 incomeForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const dateVal = document.getElementById("incomeDate").value;
@@ -379,7 +333,7 @@ incomeForm.addEventListener("submit", (e) => {
     });
 });
 
-// Xərc Əlavə Et (Seçilən aya yazılır)
+// Xərc Əlavə Et
 expenseForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const dateVal = document.getElementById("itemDate").value;
@@ -399,11 +353,7 @@ expenseForm.addEventListener("submit", (e) => {
     });
 });
 
-window.deleteItem = function(type, id) {
-    remove(ref(db, `users/${currentUser}/months/${currentMonth}/${type}/${id}`));
-};
-
-function calculateTotals() {
+function calculateOverallTotals() {
     const totalIncome = incomes.reduce((sum, item) => sum + parseFloat(item.price), 0);
     const totalExpense = expenses.reduce((sum, item) => sum + parseFloat(item.price), 0);
     const netBalance = (monthlyBudget + totalIncome) - totalExpense;
@@ -414,7 +364,7 @@ function calculateTotals() {
     displayBalance.style.color = netBalance < 0 ? "var(--danger)" : "var(--info)";
 }
 
-// --- 5. KAMERA VƏ AI ÇEK SKANNERİ ---
+// --- 6. KAMERA VƏ AI ÇEK SKANNERİ ---
 openCameraBtn.addEventListener("click", async () => {
     try {
         mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
@@ -466,7 +416,7 @@ scanReceiptBtn.addEventListener("click", async () => {
         const apiKey = keySnap.val().trim();
 
         const base64Data = await fileToBase64(file);
-        const prompt = `Bu çek görüntüsünü analiz et. Ümumi məbləği (price), mağaza adını (name) və kateqoriyanı (Market, Kommunal, Nəqliyyat/Yanacaq, Əyləncə/Restoran, Geyim, Digər) tap. YALNIZ pure JSON cavabı qaytar: {"name": "Mağaza", "price": 12.50, "category": "Market"}`;
+        const prompt = `Bu çek görüntüsünü analiz et. Ümumi məbləği (price), mağaza adını (name) və kateqoriyanı (Market, Kommunal, Nəqliyyat, Yanacaq, Əyləncə, Restoran, Nahar, Geyim, İnci, Digər) tap. YALNIZ pure JSON cavabı qaytar: {"name": "Mağaza", "price": 12.50, "category": "Market"}`;
 
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
@@ -497,6 +447,7 @@ scanReceiptBtn.addEventListener("click", async () => {
             aiStatus.style.color = "var(--success)";
             receiptImageInput.value = "";
             loadAvailableMonths();
+            loadAllMonthsData();
         } else {
             throw new Error("Qiymət tapılmadı.");
         }
@@ -515,7 +466,7 @@ function fileToBase64(file) {
     });
 }
 
-// --- 6. TAB KEÇİDLƏRİ ---
+// --- 7. TAB KEÇİDLƏRİ ---
 document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
         document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
@@ -525,7 +476,7 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
     });
 });
 
-// --- 7. AI MALİYYƏ AUDİTİ ---
+// --- 8. AI MALİYYƏ AUDİTİ ---
 analyzeFinanceBtn.addEventListener("click", async () => {
     aiFinancialAdvice.innerText = "⏳ AI maliyyə balansınızı təhlil edir...";
 
@@ -565,7 +516,7 @@ Qısa, dəqiq və motivasiyaedici maliyyə məsləhəti ver (Azərbaycan dilind�
     }
 });
 
-// --- 8. QRAFİK ---
+// --- 9. QRAFİK ---
 function updateChart() {
     const categories = {};
     expenses.forEach(item => {
