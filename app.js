@@ -150,6 +150,133 @@ monthSelector.addEventListener("change", (e) => {
     loadDataForMonth(currentMonth);
 });
 
+
+// --- BÜTÜN AYLA ÜZRƏ XƏRCLƏR VƏ GƏLİRLƏRİN YÜKLƏNMƏSİ (AÇILIB-BAĞLANAN MENYU) ---
+function loadAllMonthsData() {
+    const userRef = ref(db, `users/${currentUser}/months`);
+    
+    onValue(userRef, (snapshot) => {
+        const monthsData = snapshot.val() || {};
+        const expensesAccordion = document.getElementById("monthlyExpensesAccordion");
+        const incomesAccordion = document.getElementById("monthlyIncomesAccordion");
+        
+        expensesAccordion.innerHTML = "";
+        incomesAccordion.innerHTML = "";
+
+        const sortedMonths = Object.keys(monthsData).sort().reverse();
+
+        if (sortedMonths.length === 0) {
+            expensesAccordion.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:15px;">Hələ ki, heç bir xərc yoxdur.</p>`;
+            incomesAccordion.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:15px;">Hələ ki, heç bir gəlir yoxdur.</p>`;
+            return;
+        }
+
+        sortedMonths.forEach(monthKey => {
+            const monthObj = monthsData[monthKey];
+            const monthExpenses = monthObj.expenses || {};
+            const monthIncomes = monthObj.incomes || {};
+
+            // --- XƏRCLƏR ÜÇÜN ACCORDION ELEMENTİ ---
+            let expRows = "";
+            let totalExpMonth = 0;
+            Object.keys(monthExpenses).forEach(id => {
+                const item = monthExpenses[id];
+                totalExpMonth += parseFloat(item.price) || 0;
+                expRows += `
+                    <tr>
+                        <td>${item.date}</td>
+                        <td>${item.name}</td>
+                        <td>${item.category}</td>
+                        <td>${parseFloat(item.price).toFixed(2)} ₼</td>
+                        <td><button class="btn btn-danger btn-sm" onclick="deleteItem('${monthKey}', 'expenses', '${id}')">Sil</button></td>
+                    </tr>`;
+            });
+
+            const expAccordionItem = document.createElement("div");
+            expAccordionItem.className = `accordion-item ${monthKey === currentMonth ? 'open' : ''}`;
+            expAccordionItem.innerHTML = `
+                <div class="accordion-header" onclick="toggleAccordion(this)">
+                    <span>📅 Ay: ${monthKey} (Cəmi xərc: ${totalExpMonth.toFixed(2)} ₼)</span>
+                    <span class="accordion-icon">▼</span>
+                </div>
+                <div class="accordion-body" style="display: ${monthKey === currentMonth ? 'block' : 'none'};">
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Tarix</th>
+                                    <th>Məhsul / Xidmət</th>
+                                    <th>Kateqoriya</th>
+                                    <th>Məbləğ</th>
+                                    <th>Sil</th>
+                                </tr>
+                            </thead>
+                            <tbody>${expRows || '<tr><td colspan="5" style="text-align:center;">Bu ay xərc yoxdur</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>`;
+            expensesAccordion.appendChild(expAccordionItem);
+
+            // --- GƏLİRLƏR ÜÇÜN ACCORDION ELEMENTİ ---
+            let incRows = "";
+            let totalIncMonth = 0;
+            Object.keys(monthIncomes).forEach(id => {
+                const item = monthIncomes[id];
+                totalIncMonth += parseFloat(item.price) || 0;
+                incRows += `
+                    <tr>
+                        <td>${item.date}</td>
+                        <td>${item.name}</td>
+                        <td>${parseFloat(item.price).toFixed(2)} ₼</td>
+                        <td><button class="btn btn-danger btn-sm" onclick="deleteItem('${monthKey}', 'incomes', '${id}')">Sil</button></td>
+                    </tr>`;
+            });
+
+            const incAccordionItem = document.createElement("div");
+            incAccordionItem.className = `accordion-item ${monthKey === currentMonth ? 'open' : ''}`;
+            incAccordionItem.innerHTML = `
+                <div class="accordion-header" onclick="toggleAccordion(this)">
+                    <span>💰 Ay: ${monthKey} (Cəmi gəlir: ${totalIncMonth.toFixed(2)} ₼)</span>
+                    <span class="accordion-icon">▼</span>
+                </div>
+                <div class="accordion-body" style="display: ${monthKey === currentMonth ? 'block' : 'none'};">
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Tarix</th>
+                                    <th>Gəlir Mənbəyi</th>
+                                    <th>Məbləğ</th>
+                                    <th>Sil</th>
+                                </tr>
+                            </thead>
+                            <tbody>${incRows || '<tr><td colspan="4" style="text-align:center;">Bu ay gəlir yoxdur</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>`;
+            incomesAccordion.appendChild(incAccordionItem);
+        });
+    });
+}
+
+// Açılıb-bağlanma funksiyası (Global)
+window.toggleAccordion = function(header) {
+    const item = header.parentElement;
+    const body = item.querySelector('.accordion-body');
+    if (body.style.display === "block") {
+        body.style.display = "none";
+        item.classList.remove("open");
+    } else {
+        body.style.display = "block";
+        item.classList.add("open");
+    }
+};
+
+window.deleteItem = function(monthKey, type, id) {
+    remove(ref(db, `users/${currentUser}/months/${monthKey}/${type}/${id}`));
+};
+
+
 // --- 4. SEÇİLƏN AY ÜZRƏ VERİLƏNLƏRİN YÜKLƏNMƏSİ ---
 function loadDataForMonth(monthKey) {
     monthlyBudget = 0;
