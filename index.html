@@ -28,7 +28,6 @@
         <header class="app-header">
             <h1>📊 Maliyyə İdarəetməsi & AI Analiz</h1>
             <div class="user-panel">
-                <!-- Aylıq Arxiv Menusu -->
                 <select id="monthSelector" class="month-select" style="padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); font-weight: 600;"></select>
                 <span id="userGreeting"></span>
                 <button id="logoutBtn" type="button" class="btn btn-danger btn-sm">Çıxış Et</button>
@@ -124,35 +123,24 @@
             </form>
         </section>
 
-        <!-- Siyahılar: Gəlirlərim və Xərclərim (Tab Modulu) -->
+        <!-- Siyahılar: Aylar Üzrə Açılıb-Bağlanan Xərc və Gəlirlər -->
         <section class="card">
             <div class="tab-header">
-                <button class="tab-btn active" data-tab="expensesTab">💸 Xərclərim</button>
-                <button class="tab-btn" data-tab="incomesTab">💰 Gəlirlərim</button>
+                <button class="tab-btn active" data-tab="expensesTab">💸 Xərclərim (Aylar Üzrə)</button>
+                <button class="tab-btn" data-tab="incomesTab">💰 Gəlirlərim (Aylar Üzrə)</button>
             </div>
 
-           <!-- Siyahılar: Gəlirlərim və Xərclərim (Aylıq Qruplaşdırılmış) -->
-<section class="card">
-    <div class="tab-header">
-        <button class="tab-btn active" data-tab="expensesTab">💸 Xərclərim (Aylar Üzrə)</button>
-        <button class="tab-btn" data-tab="incomesTab">💰 Gəlirlərim (Aylar Üzrə)</button>
-    </div>
+            <!-- Xərclər Bölməsi -->
+            <div id="expensesTab" class="tab-content active">
+                <div id="monthlyExpensesAccordion" class="accordion-container"></div>
+            </div>
 
-    <!-- Xərclər Bölməsi (Aylar üzrə açılıb-bağlanan qovluqlar) -->
-    <div id="expensesTab" class="tab-content active">
-        <div id="monthlyExpensesAccordion" class="accordion-container">
-            <!-- JavaScript buraya hər ay üçün xüsusi açılıb-bağlanan menyu yığacaq -->
-        </div>
-    </div>
+            <!-- Gəlirlər Bölməsi -->
+            <div id="incomesTab" class="tab-content">
+                <div id="monthlyIncomesAccordion" class="accordion-container"></div>
+            </div>
+        </section>
 
-    <!-- Gəlirlər Bölməsi (Aylar üzrə açılıb-bağlanan qovluqlar) -->
-    <div id="incomesTab" class="tab-content">
-        <div id="monthlyIncomesAccordion" class="accordion-container">
-            <!-- JavaScript buraya gəlirləri yığacaq -->
-        </div>
-    </div>
-</section>
-            
         <!-- AI Qiymətləndirmə Və Qrafik -->
         <section class="card">
             <div class="ai-analytics-header">
