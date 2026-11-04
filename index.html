@@ -110,9 +110,13 @@
                 <select id="itemCategory">
                     <option value="Market">Market</option>
                     <option value="Kommunal">Kommunal</option>
-                    <option value="Nəqliyyat/Yanacaq">Nəqliyyat/Yanacaq</option>
-                    <option value="Əyləncə/Restoran">Əyləncə/Restoran</option>
+                    <option value="Nəqliyyat">Nəqliyyat</option>
+                    <option value="Yanacaq">Yanacaq</option>
+                    <option value="Əyləncə">Əyləncə</option>
+                    <option value="Restoran">Restoran</option>
+                    <option value="Nahar">Nahar</option>
                     <option value="Geyim">Geyim</option>
+                    <option value="İnci">İnci</option>
                     <option value="Digər">Digər</option>
                 </select>
                 <input type="date" id="itemDate" required>
@@ -127,24 +131,27 @@
                 <button class="tab-btn" data-tab="incomesTab">💰 Gəlirlərim</button>
             </div>
 
-            <!-- Xərclər Cədvəli -->
-            <div id="expensesTab" class="tab-content active">
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Tarix</th>
-                                <th>Məhsul / Xidmət</th>
-                                <th>Kateqoriya</th>
-                                <th>Məbləğ</th>
-                                <th>Sil</th>
-                            </tr>
-                        </thead>
-                        <tbody id="expenseTableBody"></tbody>
-                    </table>
-                </div>
-            </div>
+           <!-- Siyahılar: Gəlirlərim və Xərclərim (Aylıq Qruplaşdırılmış) -->
+<section class="card">
+    <div class="tab-header">
+        <button class="tab-btn active" data-tab="expensesTab">💸 Xərclərim (Aylar Üzrə)</button>
+        <button class="tab-btn" data-tab="incomesTab">💰 Gəlirlərim (Aylar Üzrə)</button>
+    </div>
 
+    <!-- Xərclər Bölməsi (Aylar üzrə açılıb-bağlanan qovluqlar) -->
+    <div id="expensesTab" class="tab-content active">
+        <div id="monthlyExpensesAccordion" class="accordion-container">
+            <!-- JavaScript buraya hər ay üçün xüsusi açılıb-bağlanan menyu yığacaq -->
+        </div>
+    </div>
+
+    <!-- Gəlirlər Bölməsi (Aylar üzrə açılıb-bağlanan qovluqlar) -->
+    <div id="incomesTab" class="tab-content">
+        <div id="monthlyIncomesAccordion" class="accordion-container">
+            <!-- JavaScript buraya gəlirləri yığacaq -->
+        </div>
+    </div>
+</section>
             <!-- Gəlirlər Cədvəli -->
             <div id="incomesTab" class="tab-content">
                 <div class="table-responsive">
